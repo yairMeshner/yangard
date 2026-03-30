@@ -1,0 +1,28 @@
+{
+  "info": {
+    "name": "keyspy",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "send events",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "http://127.0.0.1:8000/api/events",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"events\": [\n    {\"timestamp\": \"10:00:01.123\", \"key\": \"a\", \"app\": \"Chrome\"},\n    {\"timestamp\": \"10:00:01.456\", \"key\": \"b\", \"app\": \"Chrome\"},\n    {\"timestamp\": \"10:00:02.789\", \"key\": \"ctrl\", \"app\": \"VSCode\"}\n  ]\n}"
+        }
+      }
+    },
+    {
+      "name": "keepalive",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "http://127.0.0.1:8000/api/keepalive"
+      }
+    }
+  ]
+}
