@@ -1,9 +1,13 @@
 # yangard
 הנה רשימה של כמה הקבצים החשובים המרכזיים בפרויקט, רוב השאר לא משמעותיים:
 keyspy/src/keyspy_client.py — keystroke capture client
+
 api/src/server.py — backend: auth, data storage, AI report generation
+
 admin/src/src/App.jsx — frontend router and structure
+
 admin/src/src/pages/ReportsPage.jsx — main dashboard with AI report cards
+
 admin/src/src/api/client.js — all API calls from the frontend
 
 אלה הקבצים שאני ממליץ בשביל להבין את הפרויקט כרגע. טיפה קונטקסט:
