@@ -1,52 +1,40 @@
 # ── CONFIG ───────────────────────────────────────────────────────────────────
-$RG          = "yangard-rg"
-$LOCATION    = "westeurope"
-$SQL_SERVER  = "yangard-sql"
-$DB_NAME     = "yangarddb"
-$DB_USER     = "yangardadmin"
-$APP_NAME    = "yangard-api"
-$STATIC_URL  = "https://zealous-pond-0eaf7b203.1.azurestaticapps.net"
-$API_URL     = "https://yangard-api.azurewebsites.net"
+$RG         = "yangard-rg"
+$LOCATION   = "eastus2"
+$DB_SERVER  = "yangard-db"
+$DB_NAME    = "yangarddb"
+$DB_USER    = "yangardadmin"
+$APP_NAME   = "yangard-api"
+$STATIC_URL = "https://zealous-pond-0eaf7b203.1.azurestaticapps.net"
+$API_URL    = "https://yangard-api.azurewebsites.net"
 
 # ── SECRETS ──────────────────────────────────────────────────────────────────
 $DB_PASSWORD = Read-Host "Choose a DB password (min 8 chars, upper+lower+number)"
 $OPENAI_KEY  = Read-Host "OpenAI API key"
 
-# ── CREATE AZURE SQL ──────────────────────────────────────────────────────────
-Write-Host "`n[1/3] Creating Azure SQL Server..."
-az provider register --namespace Microsoft.Sql --wait
+# ── CREATE POSTGRESQL ─────────────────────────────────────────────────────────
+Write-Host "`n[1/3] Creating PostgreSQL server..."
+az provider register --namespace Microsoft.DBforPostgreSQL --wait
 
-az sql server create `
-  --name $SQL_SERVER `
+az postgres flexible-server create `
   --resource-group $RG `
+  --name $DB_SERVER `
   --location $LOCATION `
   --admin-user $DB_USER `
-  --admin-password $DB_PASSWORD
+  --admin-password $DB_PASSWORD `
+  --sku-name Standard_B1ms `
+  --tier Burstable `
+  --public-access all `
+  --yes
 
-# Allow Azure services to connect
-az sql server firewall-rule create `
+az postgres flexible-server db create `
   --resource-group $RG `
-  --server $SQL_SERVER `
-  --name AllowAzureServices `
-  --start-ip-address 0.0.0.0 `
-  --end-ip-address 0.0.0.0
-
-# Create database (free serverless tier)
-az sql db create `
-  --resource-group $RG `
-  --server $SQL_SERVER `
-  --name $DB_NAME `
-  --edition GeneralPurpose `
-  --compute-model Serverless `
-  --family Gen5 `
-  --capacity 1 `
-  --auto-pause-delay 60 `
-  --use-free-limit `
-  --free-limit-exhaustion-behavior AutoPause
+  --server-name $DB_SERVER `
+  --database-name $DB_NAME
 
 # ── SET ENV VARS ──────────────────────────────────────────────────────────────
 Write-Host "`n[2/3] Setting environment variables..."
-$DB_HOST = "$SQL_SERVER.database.windows.net"
+$DB_HOST = "$DB_SERVER.postgres.database.azure.com"
 az webapp config appsettings set `
   --name $APP_NAME `
   --resource-group $RG `
@@ -56,16 +44,15 @@ az webapp config appsettings set `
     DB_USER=$DB_USER `
     DB_PASSWORD=$DB_PASSWORD `
     OPENAI_API_KEY=$OPENAI_KEY `
-    DB_TYPE=mssql `
+    DB_SSLMODE=require `
     ALLOWED_ORIGINS=$STATIC_URL `
     KEYSPY_SERVER_URL=$API_URL `
     SCM_DO_BUILD_DURING_DEPLOYMENT=true
 
-# Update startup command to use startup.sh (installs ODBC driver)
 az webapp config set `
   --name $APP_NAME `
   --resource-group $RG `
-  --startup-file "bash api/startup.sh"
+  --startup-file "python -m uvicorn api.src.server:app --host 0.0.0.0 --port 8000"
 
 # ── REDEPLOY API ──────────────────────────────────────────────────────────────
 Write-Host "`n[3/3] Redeploying API..."

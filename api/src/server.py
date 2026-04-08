@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from datetime import datetime
+import psycopg2
 import os
 import shutil
 from dotenv import load_dotenv
@@ -24,96 +25,42 @@ app.add_middleware(
 
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-DB_TYPE = os.getenv("DB_TYPE", "postgres")  # "postgres" locally, "mssql" on Azure
-PH = "?" if DB_TYPE == "mssql" else "%s"    # placeholder for SQL queries
-
 
 def get_conn():
-    if DB_TYPE == "mssql":
-        import pyodbc
-        conn_str = (
-            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
-            f"SERVER={os.getenv('DB_HOST')};"
-            f"DATABASE={os.getenv('DB_NAME')};"
-            f"UID={os.getenv('DB_USER')};"
-            f"PWD={os.getenv('DB_PASSWORD')};"
-            f"Encrypt=yes;TrustServerCertificate=no;"
-        )
-        return pyodbc.connect(conn_str)
-    else:
-        import psycopg2
-        return psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            dbname=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            sslmode=os.getenv("DB_SSLMODE", "prefer"),
-        )
-
-
-def parse_json(val):
-    # psycopg2 returns JSONB as dict/list, pyodbc returns NVARCHAR as string
-    if isinstance(val, str):
-        return json.loads(val)
-    return val
+    return psycopg2.connect(
+        host=os.getenv("DB_HOST"),
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        sslmode=os.getenv("DB_SSLMODE", "prefer"),
+    )
 
 
 def init_db():
     conn = get_conn()
     cursor = conn.cursor()
-    if DB_TYPE == "mssql":
-        cursor.execute("""
-            IF OBJECT_ID('users', 'U') IS NULL
-            CREATE TABLE users (
-                uuid        NVARCHAR(36) PRIMARY KEY,
-                name        NVARCHAR(255) NOT NULL,
-                email       NVARCHAR(255) NOT NULL UNIQUE,
-                password    NVARCHAR(255) NOT NULL
-            )
-        """)
-        cursor.execute("""
-            IF OBJECT_ID('children', 'U') IS NULL
-            CREATE TABLE children (
-                id                    INT IDENTITY(1,1) PRIMARY KEY,
-                parent_uuid           NVARCHAR(36) NOT NULL REFERENCES users(uuid),
-                name                  NVARCHAR(255) NOT NULL,
-                year_of_birth         INT NOT NULL,
-                gender                NVARCHAR(50),
-                mental_considerations NVARCHAR(MAX)
-            )
-        """)
-        cursor.execute("""
-            IF OBJECT_ID('key_events', 'U') IS NULL
-            CREATE TABLE key_events (
-                id          INT IDENTITY(1,1) PRIMARY KEY,
-                user_uuid   NVARCHAR(36) NOT NULL REFERENCES users(uuid),
-                key_events  NVARCHAR(MAX) NOT NULL,
-                created_at  DATETIME DEFAULT GETDATE()
-            )
-        """)
-    else:
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                uuid        VARCHAR(36) PRIMARY KEY,
-                name        VARCHAR(255) NOT NULL,
-                email       VARCHAR(255) UNIQUE NOT NULL,
-                password    VARCHAR(255) NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS children (
-                id                    SERIAL PRIMARY KEY,
-                parent_uuid           VARCHAR(36) NOT NULL REFERENCES users(uuid),
-                name                  VARCHAR(255) NOT NULL,
-                year_of_birth         INTEGER NOT NULL,
-                gender                VARCHAR(50),
-                mental_considerations TEXT
-            );
-            CREATE TABLE IF NOT EXISTS key_events (
-                id          SERIAL PRIMARY KEY,
-                user_uuid   VARCHAR(36) NOT NULL REFERENCES users(uuid),
-                key_events  JSONB NOT NULL,
-                created_at  TIMESTAMP DEFAULT NOW()
-            );
-        """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            uuid        VARCHAR(36) PRIMARY KEY,
+            name        VARCHAR(255) NOT NULL,
+            email       VARCHAR(255) UNIQUE NOT NULL,
+            password    VARCHAR(255) NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS children (
+            id                    SERIAL PRIMARY KEY,
+            parent_uuid           VARCHAR(36) NOT NULL REFERENCES users(uuid),
+            name                  VARCHAR(255) NOT NULL,
+            year_of_birth         INTEGER NOT NULL,
+            gender                VARCHAR(50),
+            mental_considerations TEXT
+        );
+        CREATE TABLE IF NOT EXISTS key_events (
+            id          SERIAL PRIMARY KEY,
+            user_uuid   VARCHAR(36) NOT NULL REFERENCES users(uuid),
+            key_events  JSONB NOT NULL,
+            created_at  TIMESTAMP DEFAULT NOW()
+        );
+    """)
     conn.commit()
     cursor.close()
     conn.close()
@@ -135,7 +82,7 @@ def register(body: RegisterRequest):
         conn = get_conn()
         cursor = conn.cursor()
 
-        cursor.execute(f"SELECT uuid FROM users WHERE email = {PH}", (body.email,))
+        cursor.execute("SELECT uuid FROM users WHERE email = %s", (body.email,))
         if cursor.fetchone():
             cursor.close()
             conn.close()
@@ -143,7 +90,7 @@ def register(body: RegisterRequest):
 
         user_uuid = str(uuid.uuid4())
         cursor.execute(
-            f"INSERT INTO users (uuid, name, email, password) VALUES ({PH}, {PH}, {PH}, {PH})",
+            "INSERT INTO users (uuid, name, email, password) VALUES (%s, %s, %s, %s)",
             (user_uuid, body.name, body.email, body.password)
         )
         conn.commit()
@@ -168,7 +115,7 @@ def login(body: LoginRequest):
         conn = get_conn()
         cursor = conn.cursor()
         cursor.execute(
-            f"SELECT uuid, name FROM users WHERE email = {PH} AND password = {PH}",
+            "SELECT uuid, name FROM users WHERE email = %s AND password = %s",
             (body.email, body.password)
         )
         row = cursor.fetchone()
@@ -205,7 +152,7 @@ def receive_key_events(batch: KeyEventBatch, x_user_uuid: str = Header()):
         conn = get_conn()
         cursor = conn.cursor()
         cursor.execute(
-            f"INSERT INTO key_events (user_uuid, key_events) VALUES ({PH}, {PH})",
+            "INSERT INTO key_events (user_uuid, key_events) VALUES (%s, %s)",
             (x_user_uuid, json.dumps(db_key_events))
         )
         conn.commit()
@@ -319,7 +266,7 @@ def get_report(from_date: str, to_date: str, x_user_uuid: str = Header()):
         cursor = conn.cursor()
 
         cursor.execute(
-            f"SELECT name, year_of_birth, gender, mental_considerations FROM children WHERE parent_uuid = {PH}",
+            "SELECT name, year_of_birth, gender, mental_considerations FROM children WHERE parent_uuid = %s",
             (x_user_uuid,)
         )
         row = cursor.fetchone()
@@ -335,7 +282,7 @@ def get_report(from_date: str, to_date: str, x_user_uuid: str = Header()):
         }
 
         cursor.execute(
-            f"SELECT key_events FROM key_events WHERE user_uuid = {PH} AND created_at BETWEEN {PH} AND {PH}",
+            "SELECT key_events FROM key_events WHERE user_uuid = %s AND created_at BETWEEN %s AND %s",
             (x_user_uuid, from_date, to_date)
         )
         rows = cursor.fetchall()
@@ -344,7 +291,7 @@ def get_report(from_date: str, to_date: str, x_user_uuid: str = Header()):
 
         flat_events = []
         for r in rows:
-            for event in parse_json(r[0]):
+            for event in r[0]:
                 flat_events.append(event)
 
         text_by_app = build_text_by_app(flat_events)
@@ -384,7 +331,7 @@ def get_child(x_user_uuid: str = Header()):
         conn = get_conn()
         cursor = conn.cursor()
         cursor.execute(
-            f"SELECT name, year_of_birth, gender, mental_considerations FROM children WHERE parent_uuid = {PH}",
+            "SELECT name, year_of_birth, gender, mental_considerations FROM children WHERE parent_uuid = %s",
             (x_user_uuid,)
         )
         row = cursor.fetchone()
@@ -418,7 +365,7 @@ def create_child(body: ChildRequest, x_user_uuid: str = Header()):
         conn = get_conn()
         cursor = conn.cursor()
         cursor.execute(
-            f"INSERT INTO children (parent_uuid, name, year_of_birth, gender, mental_considerations) VALUES ({PH}, {PH}, {PH}, {PH}, {PH})",
+            "INSERT INTO children (parent_uuid, name, year_of_birth, gender, mental_considerations) VALUES (%s, %s, %s, %s, %s)",
             (x_user_uuid, body.name, body.year_of_birth, body.gender, body.mental_considerations)
         )
         conn.commit()
@@ -435,7 +382,7 @@ def update_child(body: ChildRequest, x_user_uuid: str = Header()):
         conn = get_conn()
         cursor = conn.cursor()
         cursor.execute(
-            f"UPDATE children SET name = {PH}, year_of_birth = {PH}, gender = {PH}, mental_considerations = {PH} WHERE parent_uuid = {PH}",
+            "UPDATE children SET name = %s, year_of_birth = %s, gender = %s, mental_considerations = %s WHERE parent_uuid = %s",
             (body.name, body.year_of_birth, body.gender, body.mental_considerations, x_user_uuid)
         )
         conn.commit()
