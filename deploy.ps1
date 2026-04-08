@@ -23,7 +23,8 @@ Write-Host "`n[2/8] Creating resource group..."
 az group create --name $RG --location $LOCATION
 
 # ── POSTGRESQL ───────────────────────────────────────────────────────────────
-Write-Host "`n[3/8] Creating PostgreSQL server (takes ~3 min)..."
+Write-Host "`n[3/8] Registering PostgreSQL provider and creating server (takes ~3 min)..."
+az provider register --namespace Microsoft.DBforPostgreSQL --wait
 az postgres flexible-server create `
   --resource-group $RG `
   --name $DB_SERVER `
@@ -41,14 +42,7 @@ az postgres flexible-server db create `
   --server-name $DB_SERVER `
   --database-name $DB_NAME
 
-Write-Host "Running schema.sql..."
-az postgres flexible-server execute `
-  --name $DB_SERVER `
-  --resource-group $RG `
-  --admin-user $DB_USER `
-  --admin-password $DB_PASSWORD `
-  --database-name $DB_NAME `
-  --file-path "api/src/schema.sql"
+# Tables are created automatically by the server on first startup (init_db)
 
 # ── APP SERVICE ───────────────────────────────────────────────────────────────
 Write-Host "`n[4/8] Creating App Service..."
