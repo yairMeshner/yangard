@@ -1,6 +1,6 @@
-import { NavLink, Outlet } from 'react-router-dom'
-import { BarChart2, User, Download } from 'lucide-react'
-import { getName } from '../api/session'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { BarChart2, User, Download, LogOut } from 'lucide-react'
+import { getName, clearSession } from '../api/session'
 
 const NAV_ITEMS = [
   { label: 'Reports',          path: '/reports',  icon: BarChart2 },
@@ -25,6 +25,13 @@ function ShieldLogo() {
 }
 
 export default function Layout() {
+  const navigate = useNavigate()
+
+  function handleLogout() {
+    clearSession()
+    navigate('/')
+  }
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
 
@@ -75,7 +82,7 @@ export default function Layout() {
         </nav>
 
         {/* Account */}
-        <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: '10px',
             padding: '10px 12px', borderRadius: '10px',
@@ -92,6 +99,20 @@ export default function Layout() {
               <p style={{ fontSize: '11px', color: '#475569', lineHeight: 1.3 }}>Account</p>
             </div>
           </div>
+          <button
+            onClick={handleLogout}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '9px 12px', borderRadius: '10px', border: 'none',
+              backgroundColor: 'transparent', color: '#475569',
+              fontSize: '13px', fontWeight: 500, cursor: 'pointer', width: '100%',
+              transition: 'background 150ms, color 150ms',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#f87171' }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#475569' }}
+          >
+            <LogOut size={14} /> Log Out
+          </button>
         </div>
 
       </aside>

@@ -8,5 +8,7 @@ __pycache__/
 # Node
 node_modules/
 
-# Vite build
+# Vite build / PyInstaller output
 dist/
+build/
+*.spec

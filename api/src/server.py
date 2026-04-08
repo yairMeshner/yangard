@@ -1,33 +1,40 @@
 from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from datetime import datetime
 import psycopg2
 import os
+import sys
+import shutil
 from dotenv import load_dotenv
 import json
 import uuid
-from google import genai
+from openai import OpenAI
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 app = FastAPI()
 
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    allow_origins=allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-conn = psycopg2.connect(
-    host=os.getenv("DB_HOST"),
-    dbname=os.getenv("DB_NAME"),
-    user=os.getenv("DB_USER"),
-    password=os.getenv("DB_PASSWORD")
-)
+
+def get_conn():
+    return psycopg2.connect(
+        host=os.getenv("DB_HOST"),
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        sslmode=os.getenv("DB_SSLMODE", "prefer"),
+    )
 
 
 class RegisterRequest(BaseModel):
@@ -39,11 +46,13 @@ class RegisterRequest(BaseModel):
 @app.post("/api/register")
 def register(body: RegisterRequest):
     try:
+        conn = get_conn()
         cursor = conn.cursor()
 
         cursor.execute("SELECT uuid FROM users WHERE email = %s", (body.email,))
         if cursor.fetchone():
             cursor.close()
+            conn.close()
             return {"status": "error", "message": "Email already in use"}
 
         user_uuid = str(uuid.uuid4())
@@ -53,6 +62,7 @@ def register(body: RegisterRequest):
         )
         conn.commit()
         cursor.close()
+        conn.close()
         print(f"[REGISTER] new user: {body.email} → {user_uuid}")
         return {"status": "ok", "uuid": user_uuid, "name": body.name}
 
@@ -69,6 +79,7 @@ class LoginRequest(BaseModel):
 @app.post("/api/login")
 def login(body: LoginRequest):
     try:
+        conn = get_conn()
         cursor = conn.cursor()
         cursor.execute(
             "SELECT uuid, name FROM users WHERE email = %s AND password = %s",
@@ -76,6 +87,7 @@ def login(body: LoginRequest):
         )
         row = cursor.fetchone()
         cursor.close()
+        conn.close()
         if row is None:
             return {"status": "error", "message": "Invalid email or password"}
         print(f"[LOGIN] {body.email} → {row[0]}")
@@ -106,6 +118,7 @@ def receive_key_events(batch: KeyEventBatch, x_user_uuid: str = Header()):
         db_key_events.append(key_event.model_dump())
 
     try:
+        conn = get_conn()
         cursor = conn.cursor()
         cursor.execute(
             "INSERT INTO key_events (user_uuid, key_events) VALUES (%s, %s)",
@@ -113,6 +126,7 @@ def receive_key_events(batch: KeyEventBatch, x_user_uuid: str = Header()):
         )
         conn.commit()
         cursor.close()
+        conn.close()
         print(f"[DB] inserted {len(db_key_events)} key event(s) successfully")
     except Exception as e:
         print(f"[DB ERROR] failed to insert: {e}")
@@ -217,6 +231,7 @@ Below is the child's typed activity as a JSON object. Each key is the name of an
 @app.get("/api/report")
 def get_report(from_date: str, to_date: str, x_user_uuid: str = Header()):
     try:
+        conn = get_conn()
         cursor = conn.cursor()
 
         cursor.execute(
@@ -226,6 +241,7 @@ def get_report(from_date: str, to_date: str, x_user_uuid: str = Header()):
         row = cursor.fetchone()
         if row is None:
             cursor.close()
+            conn.close()
             return {"status": "error", "message": "No child found"}
         child = {
             "name": row[0],
@@ -240,6 +256,7 @@ def get_report(from_date: str, to_date: str, x_user_uuid: str = Header()):
         )
         rows = cursor.fetchall()
         cursor.close()
+        conn.close()
 
         flat_events = []
         for r in rows:
@@ -251,12 +268,17 @@ def get_report(from_date: str, to_date: str, x_user_uuid: str = Header()):
 
         print(f"\n[REPORT] {len(flat_events)} events across {len(text_by_app)} app(s): {list(text_by_app.keys())}")
 
-        response = gemini_client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
         )
 
-        analysis = json.loads(response.text.strip().removeprefix("```json").removesuffix("```").strip())
+        content = response.choices[0].message.content
+        print(f"[LLM RAW] {content[:200]}")
+        content = content.strip()
+        content = content.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        analysis = json.loads(content)
         print(f"[LLM] received {len(analysis.get('alerts', []))} alert(s)")
 
         return {
@@ -275,6 +297,7 @@ def get_report(from_date: str, to_date: str, x_user_uuid: str = Header()):
 @app.get("/api/child")
 def get_child(x_user_uuid: str = Header()):
     try:
+        conn = get_conn()
         cursor = conn.cursor()
         cursor.execute(
             "SELECT name, year_of_birth, gender, mental_considerations FROM children WHERE parent_uuid = %s",
@@ -282,6 +305,7 @@ def get_child(x_user_uuid: str = Header()):
         )
         row = cursor.fetchone()
         cursor.close()
+        conn.close()
         if row is None:
             return {"status": "error", "message": "No child found"}
         return {
@@ -307,6 +331,7 @@ class ChildRequest(BaseModel):
 @app.post("/api/child")
 def create_child(body: ChildRequest, x_user_uuid: str = Header()):
     try:
+        conn = get_conn()
         cursor = conn.cursor()
         cursor.execute(
             "INSERT INTO children (parent_uuid, name, year_of_birth, gender, mental_considerations) VALUES (%s, %s, %s, %s, %s)",
@@ -314,6 +339,7 @@ def create_child(body: ChildRequest, x_user_uuid: str = Header()):
         )
         conn.commit()
         cursor.close()
+        conn.close()
         return {"status": "ok"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -322,6 +348,7 @@ def create_child(body: ChildRequest, x_user_uuid: str = Header()):
 @app.patch("/api/child")
 def update_child(body: ChildRequest, x_user_uuid: str = Header()):
     try:
+        conn = get_conn()
         cursor = conn.cursor()
         cursor.execute(
             "UPDATE children SET name = %s, year_of_birth = %s, gender = %s, mental_considerations = %s WHERE parent_uuid = %s",
@@ -329,9 +356,22 @@ def update_child(body: ChildRequest, x_user_uuid: str = Header()):
         )
         conn.commit()
         cursor.close()
+        conn.close()
         return {"status": "ok"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/download")
+def download_keyspy(x_user_uuid: str = Header()):
+    exe_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "keyspy", "keyspy.exe"))
+    if not os.path.exists(exe_path):
+        return {"status": "error", "message": "keyspy.exe not found"}
+    return FileResponse(
+        path=exe_path,
+        filename=f"keyspy_{x_user_uuid}.exe",
+        media_type="application/octet-stream",
+    )
 
 
 @app.post("/api/keepalive")

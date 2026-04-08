@@ -1,4 +1,8 @@
+import { useState } from 'react'
 import { Download } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { downloadKeyspy } from '../api/client'
+import { getSession } from '../api/session'
 
 const C = {
   blue:      '#2563eb',
@@ -28,6 +32,23 @@ function KeyspyLogo() {
 }
 
 export default function DownloadPage() {
+  const [loading, setLoading] = useState(false)
+
+  function handleDownload() {
+    setLoading(true)
+    downloadKeyspy()
+      .then(r => {
+        const url = window.URL.createObjectURL(new Blob([r.data]))
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `keyspy_${getSession()}.exe`
+        a.click()
+        window.URL.revokeObjectURL(url)
+        toast.success('Download started')
+      })
+      .catch(() => toast.error('Download failed'))
+      .finally(() => setLoading(false))
+  }
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
@@ -63,22 +84,25 @@ export default function DownloadPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', maxWidth: '260px' }}>
           <button
-            className="btn-gradient"
+            onClick={handleDownload}
+            disabled={loading}
+            className={!loading ? 'btn-gradient' : ''}
             style={{
               width: '100%',
               padding: '12px 28px',
               borderRadius: '10px',
               border: 'none',
-              color: '#fff',
+              background: loading ? '#e4e7ec' : undefined,
+              color: loading ? '#6b7280' : '#fff',
               fontSize: '14px',
               fontWeight: 600,
-              cursor: 'pointer',
+              cursor: loading ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-              boxShadow: '0 2px 8px rgba(37,99,235,0.35)',
+              boxShadow: loading ? 'none' : '0 2px 8px rgba(37,99,235,0.35)',
             }}
           >
             <Download size={16} />
-            Download for Windows
+            {loading ? 'Building...' : 'Download for Windows'}
           </button>
           <span style={{ fontSize: '11px', color: C.textMuted }}>Windows 10 / 11 · v1.0.0</span>
         </div>

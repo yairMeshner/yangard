@@ -3,7 +3,7 @@ import { getSession } from './session'
 export { setSession } from './session'
 
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000',
+  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000',
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -14,6 +14,10 @@ api.interceptors.request.use((config) => {
 
 export function getReport(from, to) {
   return api.get(`/api/report?from_date=${from}&to_date=${to}`)
+}
+
+export function downloadKeyspy() {
+  return api.get('/api/download', { responseType: 'blob' })
 }
 
 export function register(name, email, password) {

