@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import json
 import uuid
 from openai import OpenAI
+import bcrypt
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
@@ -67,7 +68,10 @@ def init_db():
     print("[DB] tables ready")
 
 
-init_db()
+try:
+    init_db()
+except Exception as e:
+    print(f"[DB WARNING] init_db failed (will retry on first request): {e}")
 
 
 class RegisterRequest(BaseModel):
@@ -89,9 +93,10 @@ def register(body: RegisterRequest):
             return {"status": "error", "message": "Email already in use"}
 
         user_uuid = str(uuid.uuid4())
+        hashed = bcrypt.hashpw(body.password.encode(), bcrypt.gensalt()).decode()
         cursor.execute(
             "INSERT INTO users (uuid, name, email, password) VALUES (%s, %s, %s, %s)",
-            (user_uuid, body.name, body.email, body.password)
+            (user_uuid, body.name, body.email, hashed)
         )
         conn.commit()
         cursor.close()
@@ -115,16 +120,17 @@ def login(body: LoginRequest):
         conn = get_conn()
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT uuid, name FROM users WHERE email = %s AND password = %s",
-            (body.email, body.password)
+            "SELECT uuid, name, password FROM users WHERE email = %s",
+            (body.email,)
         )
         row = cursor.fetchone()
         cursor.close()
         conn.close()
-        if row is None:
+        if row is None or not bcrypt.checkpw(body.password.encode(), row[2].encode()):
             return {"status": "error", "message": "Invalid email or password"}
         print(f"[LOGIN] {body.email} → {row[0]}")
         return {"status": "ok", "uuid": row[0], "name": row[1]}
+
     except Exception as e:
         print(f"[DB ERROR] login failed: {e}")
         return {"status": "error", "message": str(e)}
