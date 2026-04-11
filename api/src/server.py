@@ -34,6 +34,7 @@ def get_conn():
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
         sslmode=os.getenv("DB_SSLMODE", "prefer"),
+        connect_timeout=5,
     )
 
 
