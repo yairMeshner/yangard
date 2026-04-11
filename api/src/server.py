@@ -71,11 +71,10 @@ def init_db():
     print("[DB] tables ready")
 
 
-# Tables already exist in Neon — skipping init on startup
-# try:
-#     init_db()
-# except Exception as e:
-#     print(f"[DB WARNING] init_db failed: {e}")
+try:
+    init_db()
+except Exception as e:
+    print(f"[DB WARNING] init_db failed: {e}")
 
 
 class RegisterRequest(BaseModel):
