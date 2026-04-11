@@ -149,7 +149,7 @@ export default function ReportsPage() {
         })
         toast.success('Report loaded')
       })
-      .catch(() => toast.error('Failed to load report'))
+      .catch((e) => toast.error(e.isNetworkError ? 'Service unavailable — try again later' : 'Failed to load report'))
       .finally(() => setLoading(false))
   }
 

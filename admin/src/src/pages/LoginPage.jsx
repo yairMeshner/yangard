@@ -29,7 +29,7 @@ export default function LoginPage() {
         setSession(r.data.uuid, r.data.name)
         navigate('/reports')
       })
-      .catch(() => toast.error('Login failed'))
+      .catch((e) => toast.error(e.isNetworkError ? 'Service unavailable — try again later' : 'Login failed'))
       .finally(() => setLoading(false))
   }
 

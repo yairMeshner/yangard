@@ -12,6 +12,14 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (!error.response) error.isNetworkError = true
+    return Promise.reject(error)
+  }
+)
+
 export function getReport(from, to) {
   return api.get(`/api/report?from_date=${from}&to_date=${to}`)
 }

@@ -33,7 +33,7 @@ export default function RegisterPage() {
         setSession(r.data.uuid, r.data.name)
         navigate('/reports')
       })
-      .catch(() => toast.error('Registration failed'))
+      .catch((e) => toast.error(e.isNetworkError ? 'Service unavailable — try again later' : 'Registration failed'))
       .finally(() => setLoading(false))
   }
 

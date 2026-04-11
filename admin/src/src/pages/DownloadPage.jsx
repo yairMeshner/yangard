@@ -46,7 +46,7 @@ export default function DownloadPage() {
         window.URL.revokeObjectURL(url)
         toast.success('Download started')
       })
-      .catch(() => toast.error('Download failed'))
+      .catch((e) => toast.error(e.isNetworkError ? 'Service unavailable — try again later' : 'Download failed'))
       .finally(() => setLoading(false))
   }
   return (

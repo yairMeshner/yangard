@@ -59,7 +59,7 @@ export default function ChildAreaPage() {
           })
         }
       })
-      .catch(() => toast.error('Failed to load child info'))
+      .catch((e) => toast.error(e.isNetworkError ? 'Service unavailable — try again later' : 'Failed to load child info'))
       .finally(() => setLoaded(true))
   }, [])
 
@@ -87,7 +87,7 @@ export default function ChildAreaPage() {
         setEditing(false)
         toast.success(child ? 'Changes saved' : 'Child profile created')
       })
-      .catch(() => toast.error('Failed to save'))
+      .catch((e) => toast.error(e.isNetworkError ? 'Service unavailable — try again later' : 'Failed to save'))
       .finally(() => setSaving(false))
   }
 

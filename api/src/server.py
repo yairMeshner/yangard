@@ -80,6 +80,16 @@ class RegisterRequest(BaseModel):
     password: str
 
 
+@app.get("/api/health")
+def health():
+    try:
+        conn = get_conn()
+        conn.close()
+        return {"status": "ok", "db": "connected"}
+    except Exception as e:
+        return {"status": "ok", "db": "unavailable", "detail": str(e)}
+
+
 @app.post("/api/register")
 def register(body: RegisterRequest):
     try:
