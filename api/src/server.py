@@ -3,11 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from datetime import datetime
-try:
-    import psycopg2
-    _db_available = True
-except ImportError:
-    _db_available = False
+import pg8000
+import ssl
 import os
 import shutil
 from dotenv import load_dotenv
@@ -33,15 +30,13 @@ def get_openai_client():
 
 
 def get_conn():
-    if not _db_available:
-        raise RuntimeError("psycopg2 not installed")
-    return psycopg2.connect(
+    return pg8000.connect(
         host=os.getenv("DB_HOST"),
-        dbname=os.getenv("DB_NAME"),
+        database=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
-        sslmode=os.getenv("DB_SSLMODE", "prefer"),
-        connect_timeout=5,
+        ssl_context=ssl.create_default_context(),
+        timeout=5,
     )
 
 
@@ -316,7 +311,8 @@ def get_report(from_date: str, to_date: str, x_user_uuid: str = Header()):
 
         flat_events = []
         for r in rows:
-            for event in r[0]:
+            data = r[0] if isinstance(r[0], list) else json.loads(r[0])
+            for event in data:
                 flat_events.append(event)
 
         text_by_app = build_text_by_app(flat_events)

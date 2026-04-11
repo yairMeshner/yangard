@@ -1,8 +1,6 @@
 fastapi
 uvicorn[standard]
-# psycopg2 — added back once DB connectivity is verified on Azure
-# psycopg2-binary; sys_platform == "win32"
-# psycopg2==2.9.9; sys_platform != "win32"
+pg8000
 python-dotenv
 openai
 bcrypt
