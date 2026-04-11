@@ -3,7 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from datetime import datetime
-import psycopg2
+try:
+    import psycopg2
+    _db_available = True
+except ImportError:
+    _db_available = False
 import os
 import shutil
 from dotenv import load_dotenv
@@ -29,6 +33,8 @@ def get_openai_client():
 
 
 def get_conn():
+    if not _db_available:
+        raise RuntimeError("psycopg2 not installed")
     return psycopg2.connect(
         host=os.getenv("DB_HOST"),
         dbname=os.getenv("DB_NAME"),
