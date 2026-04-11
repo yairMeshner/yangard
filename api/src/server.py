@@ -24,7 +24,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+def get_openai_client():
+    return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 def get_conn():
@@ -317,7 +318,7 @@ def get_report(from_date: str, to_date: str, x_user_uuid: str = Header()):
 
         print(f"\n[REPORT] {len(flat_events)} events across {len(text_by_app)} app(s): {list(text_by_app.keys())}")
 
-        response = openai_client.chat.completions.create(
+        response = get_openai_client().chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
