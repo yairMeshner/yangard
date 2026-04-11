@@ -415,7 +415,7 @@ def update_child(body: ChildRequest, x_user_uuid: str = Header()):
 
 @app.get("/api/download")
 def download_keyspy(x_user_uuid: str = Header()):
-    exe_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "keyspy", "keyspy.exe"))
+    exe_path = os.path.abspath(os.path.join(os.getcwd(), "keyspy", "keyspy.exe"))
     if not os.path.exists(exe_path):
         return {"status": "error", "message": "keyspy.exe not found"}
     return FileResponse(
