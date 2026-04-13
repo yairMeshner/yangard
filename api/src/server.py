@@ -93,6 +93,7 @@ def health():
         return {"status": "ok", "db": "unavailable", "detail": str(e)}
 
 
+
 @app.post("/api/register")
 def register(body: RegisterRequest):
     try:
@@ -302,7 +303,7 @@ def get_report(from_date: str, to_date: str, x_user_uuid: str = Header()):
 
         cursor.execute(
             "SELECT key_events FROM key_events WHERE user_uuid = %s AND created_at BETWEEN %s AND %s",
-            (x_user_uuid, from_date, to_date)
+            (x_user_uuid, f"{from_date} 00:00:00", f"{to_date} 23:59:59")
         )
         rows = cursor.fetchall()
         cursor.close()
@@ -415,7 +416,10 @@ def update_child(body: ChildRequest, x_user_uuid: str = Header()):
 
 @app.get("/api/download")
 def download_keyspy(x_user_uuid: str = Header()):
-    exe_path = os.path.abspath(os.path.join(os.getcwd(), "keyspy", "keyspy.exe"))
+    cwd = os.getcwd()
+    exe_path = os.path.join(cwd, "keyspy.exe")  # Azure: flat zip root
+    if not os.path.exists(exe_path):
+        exe_path = os.path.join(cwd, "keyspy", "keyspy.exe")  # local dev
     if not os.path.exists(exe_path):
         return {"status": "error", "message": "keyspy.exe not found"}
     return FileResponse(
