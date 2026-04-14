@@ -199,7 +199,6 @@ export default function ReportsPage() {
             <p style={{ fontSize: '13px', color: C.textMuted }}>{profile.gender} · Born {profile.year_of_birth}{profile.mental_considerations ? ` · ${profile.mental_considerations}` : ''}</p>
           </div>
           <div style={{ display: 'flex', gap: '10px', marginLeft: 'auto', flexWrap: 'wrap' }}>
-            <StatPill label="Total Events" value={report?.eventCount ?? '—'} />
             <StatPill label="Alerts" value={report?.alerts?.length ?? '—'} type="alert" />
             <StatPill label="High Severity" value={highAlerts.length} type="alert" />
           </div>
