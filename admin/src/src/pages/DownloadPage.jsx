@@ -104,7 +104,6 @@ export default function DownloadPage() {
             <Download size={16} />
             {loading ? 'Building...' : 'Download for Windows'}
           </button>
-          <span style={{ fontSize: '11px', color: C.textMuted }}>Windows 10 / 11 · v1.0.0</span>
         </div>
       </div>
 
